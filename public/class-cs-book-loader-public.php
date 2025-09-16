@@ -315,6 +315,7 @@ class Cs_Book_Loader_Public {
 			$books = $cached['books'];
 			$pagination = $cached['pagination'];
         }else{
+			$meta_query =  array();
 			if( $author_letter && $price_filter ){
 				$meta_query = array( 'relation' => 'AND' );
 			}
@@ -345,12 +346,18 @@ class Cs_Book_Loader_Public {
 				'post_status'    => 'publish',
 				'posts_per_page' => get_option( 'posts_per_page', 10 ),
 				'paged'          => $paged,
-				'meta_query'     => $meta_query, //phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 				'orderby'        => 'meta_value',
 				'meta_key'       => 'cs_publish_date', //phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				'order'          => $order,
 				'fields'         => 'ids',
 			);
+
+			if( ! empty( $meta_query ) ){
+				//phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				$args['meta_query'] = $meta_query;
+			}
+
+
 
 			$query = new WP_Query( $args );
 
