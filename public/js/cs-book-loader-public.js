@@ -23,8 +23,10 @@
 				},
 				success: function (response) {
 					if (reset) {
+						// phpcs:ignore WordPressVIPMinimum.JS.HTMLExecutingFunctions.html
 						$('.books-list').html(response.html);
 					} else {
+						// phpcs:ignore WordPressVIPMinimum.JS.HTMLExecutingFunctions.append
 						$('.books-list').append(response.html);
 					}
 

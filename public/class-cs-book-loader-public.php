@@ -167,21 +167,12 @@ class Cs_Book_Loader_Public {
 			$like1 = $wpdb->esc_like( '_transient_cs_books_' ) . '%';
 			$like2 = $wpdb->esc_like( '_transient_timeout_cs_books_' ) . '%';
 
-			$count = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-					$like1,
-					$like2
-				)
-			);
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $like1, $like2 ) );
 
-			$wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-					$like1,
-					$like2
-				)
-			);
+			$count = ( $count >= 2 ) ? $count / 2 : 0; 
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $like1, $like2 ) );
 
 			echo '<div class="updated"><p>' . esc_html( $count ) .' '. esc_html__( 'Book cache cleared successfully.', 'cs-book-loader' ) . '</p></div>';
 		}
@@ -236,7 +227,8 @@ class Cs_Book_Loader_Public {
 	}
 
 	function  books_save_meta_box( $post_id ){
-		if (!isset($_POST['cs_books_meta_box_nonce']) || !wp_verify_nonce($_POST['cs_books_meta_box_nonce'], 'cs_books_nonce')) {
+		$secure_nonce = isset($_POST['cs_books_meta_box_nonce']) ?  sanitize_text_field($_POST['cs_books_meta_box_nonce']) : '';
+		if ( !wp_verify_nonce($secure_nonce, 'cs_books_nonce')) {
 			return $post_id;
 		}
 
@@ -244,7 +236,7 @@ class Cs_Book_Loader_Public {
 			return $post_id;
 		}
 
-		if ('books' === $_POST['post_type']) {
+		if ('books' === get_post_type( $post_id ) ) {
 			if (!current_user_can('edit_post', $post_id)) {
 				return $post_id;
 			}
@@ -290,8 +282,8 @@ class Cs_Book_Loader_Public {
 	function get_books_list( WP_REST_Request $request ) {
 		$paged = max( 1, (int) $request->get_param( 'page' ) );
 
-		$author_letter = strtolower( sanitize_text_field( $request->get_param( 'author_letter' ) ) );
-		if ( ! preg_match( '/^[a-z]$/', $author_letter ) ) {
+		$author_letter = strtoupper( sanitize_text_field( $request->get_param( 'author_letter' ) ) );
+		if ( ! preg_match( '/^[A-Z]$/', $author_letter ) ) {
 			$author_letter = false;
 		}
 
@@ -323,13 +315,16 @@ class Cs_Book_Loader_Public {
 			$books = $cached['books'];
 			$pagination = $cached['pagination'];
         }else{
-			$meta_query = array( 'relation' => 'AND' );
+			if( $author_letter && $price_filter ){
+				$meta_query = array( 'relation' => 'AND' );
+			}
 
 			if ( $author_letter ) {
 				$meta_query[] = array(
 					'key'     => 'cs_author_name',
-					'value'   =>  $author_letter . '%',
-					'compare' => 'LIKE',
+					'value'   =>   '^' . $author_letter,
+					// phpcs:ignore WordPressVIPMinimum.Performance.RegexpCompare.compare_compare
+					'compare' => 'REGEXP',
 				);
 			}
 
@@ -350,9 +345,9 @@ class Cs_Book_Loader_Public {
 				'post_status'    => 'publish',
 				'posts_per_page' => get_option( 'posts_per_page', 10 ),
 				'paged'          => $paged,
-				'meta_query'     => $meta_query,
+				'meta_query'     => $meta_query, //phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 				'orderby'        => 'meta_value',
-				'meta_key'       => 'cs_publish_date',
+				'meta_key'       => 'cs_publish_date', //phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				'order'          => $order,
 				'fields'         => 'ids',
 			);
@@ -423,8 +418,8 @@ class Cs_Book_Loader_Public {
 			'post_status'    => 'publish',
 			'posts_per_page' => $per_page,
 			'paged'          => 1,
-			'orderby'        => 'meta_value',
-			'meta_key'       => 'cs_publish_date',
+			'orderby'        => 'meta_value', 
+			'meta_key'       => 'cs_publish_date', //phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 			'order'          => ( 'OLDEST' === $order ) ? 'ASC' : 'DESC',
 		) );
 
